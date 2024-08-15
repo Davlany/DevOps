@@ -1,0 +1,110 @@
+
+---
+
+- name: Deploy WordPress on server
+  hosts: staging_servers
+  become: yes
+
+  vars:
+    git_repo: "https://github.com/Davlany/DevOps"
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Update and install packages
+      apt:
+        update_cache: yes
+        name:
+          - apache2
+          - mysql-server
+          - php
+          - php-mysql
+          - php-cli
+          - php-xml
+          - wget
+          - unzip
+        state: present
+
+    - name: Create wordpress database
+      community.mysql.mysql_db:
+        name: "{{wp_db_name}}"
+        state: present
+        login_user: "{{db_user}}"
+        login_password: "{{db_password}}"
+        login_host: "{{db_host}}"
+        collation: "utf8_general_ci"
+        encoding: "utf8"
+
+    - name: Create wordpress user
+      community.mysql.mysql_user:
+        name: "{{ wp_db_user }}"
+        password: "{{ wp_db_password }}"
+        priv: "{{ wp_db_name }}.*:ALL"
+        host: "%"
+        state: present
+        login_user: "{{db_user}}"
+        login_password: "{{db_password}}"
+        login_host: "{{db_host}}"
+
+    - name: Install WordPress
+      get_url:
+        url: "https://wordpress.org/latest.zip"
+        dest: "/tmp/latest.zip"
+
+    - name: Unzip Wordpress
+      unarchive:
+        src: "/tmp/latest.zip"
+        dest: "/var/www/html"
+        remote_src: yes
+
+    - name: Move wordpress to root apache
+      command: rsync -av /var/www/html/wordpress/ /var/www/html/
+
+    - name: Remove empty WordPress folder
+      file:
+        path: "/var/www/html/wordpress"
+        state: absent
+
+    - name: Set accesses to  WordPress
+      file:
+        path: "/var/www/html/"
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Clone wp-config from git repository
+      command: git clone https://github.com/Davlany/DevOps.git
+
+    - name: Move wp-conf to root
+      command: rsync DevOps/wp-config.php /var/www/html/
+
+    - name: Remove wp-config-sample.php
+      file:
+        path: "/var/www/html/wp-config-sample.php"
+        state: absent
+
+    - name: Setting Apache to using Redis for cache sessions
+      blockinfile:
+        path: "/etc/php/{{ php_version }}/apache2/php.ini"
+        block: |
+          session.save_handler = redis
+          session.save_path = "tcp://{{ redis_host }}:6379"
+        create: yes
+
+    - name: Add env variables to apache2.conf
+      blockinfile:
+        path: "/etc/apache2/apache2.conf"
+        block: |
+          SetEnv DB_HOST {{ db_host }}
+          SetEnv DB_USER {{ db_user }}
+          SetEnv DB_PASSWORD {{ db_password }}
+          SetEnv WP_DB_NAME {{ wp_db_name }}
+          SetEnv WP_DB_USER {{ wp_db_user }}
+          SetEnv WP_DB_PASSWORD {{ wp_db_password }}
+        create: yes
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted

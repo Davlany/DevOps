@@ -1,0 +1,13 @@
+
+---
+
+ ansible_user                 : ubuntu 
+ ansible_ssh_private_key_file : /home/ubuntu/ssh/LinuxTest.pem
+ db_host: "terraform-20240811144817859100000007.cz8448wukfpn.eu-north-1.rds.amazonaws.com"
+ db_user: "admin"
+ db_password: "password"
+ wp_db_name: "wordpress"
+ wp_db_user: "wordpress_user"
+ wp_db_password: "test123"
+ redis_host: "redis-cluster.v59sle.0001.eun1.cache.amazonaws.com"
+ php_version: "8.3"

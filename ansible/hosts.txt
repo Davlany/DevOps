@@ -1,0 +1,4 @@
+
+[staging_servers]
+
+linux1 ansible_host=51.21.150.184 
